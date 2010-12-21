@@ -1,1 +1,1 @@
-nnoremap <silent> <leader>s call argumentrewrap#RewrapArguments()
+nnoremap <silent> <leader>s :call argumentrewrap#RewrapArguments()<CR>
