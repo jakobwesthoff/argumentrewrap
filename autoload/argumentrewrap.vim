@@ -1,48 +1,102 @@
-function! RewrapFunctionCall()
-    let s:splitExpression = '\v^(\s*)(.*)$'
-    let s:indent = substitute( getline( "." ), s:splitExpression, '\1', '' )
-    let s:input = substitute( getline( "." ), s:splitExpression, '\2', '' )
-    let s:level = 0
-    let s:start = 0
-    
-    for s:pos in range( 0, strlen( s:input ) )
-        let s:char = strpart( s:input, s:pos, 1 )
-        if s:char == "("
-            if s:level == 0
-                let s:start = s:pos + 1
-                call setline( "." , s:indent . strpart( s:input, 0, s:pos + 1 ) )
-            endif
-            let s:level += 1
-        elseif s:char == ")"
-            let s:level -= 1
-            if s:level > 0
-                continue
-            endif
+function! argumentrewrap#IsolateParenthesisToMatch( input )
+    let l:pos = 0
+    let l:lastParenthesis = ""
 
-            let s:argument = strpart( s:input, s:start, s:pos - s:start )
-            let s:cleaned = substitute( s:argument, '\v^\s*(.\{-})\s*$', '\1', '' )
-            let s:start = s:pos
-            
-            normal o
-            call setline( ".", s:indent . s:cleaned )
-            normal >>
-        elseif s:char == ","
-            if s:level != 1
-                continue
-            endif
-
-            let s:argument = strpart( s:input, s:start, s:pos - s:start )
-            let s:cleaned = substitute( s:argument, '\v^\s*(.\{-})\s*$', '\1', '' )
-            let s:start = s:pos + 1
-            
-            normal o
-            call setline( ".", s:indent . s:cleaned . "," )
-            normal >>
+    for l:pos in range( 0, strlen( a:input ) )
+        let l:char = strpart( a:input, l:pos, 1 )
+        if l:char == "," && l:lastParenthesis != ""
+            return { "open": l:lastParenthesis, "close": argumentrewrap#MapOpeningToClosingParenthesis( l:lastParenthesis ) }
+        elseif l:char =~ '\((\|[\|{\)'
+            let l:lastParenthesis = l:char
         endif
     endfor
+    
+    return { "open": "", "close": "" }
+endfunc
 
-    normal o
-    call setline( ".", s:indent . strpart( s:input, s:start ) )
-endfun
+function! argumentrewrap#MapOpeningToClosingParenthesis( opening )
+    let l:paranthesisMapping = { "(": ")", "[": "]", "{": "}" }
+    return l:paranthesisMapping[a:opening]
+endfunc
 
-nnoremap <silent> <leader>s :call RewrapFunctionCall()<CR>
+function! argumentrewrap#MapClosingToOpeningParenthesis( closing )
+    let l:paranthesisMapping = { ")": "(", "]": "[", "}": "{" }
+    return l:paranthesisMapping[a:closing]
+endfunc
+
+function! argumentrewrap#IsolateIndentation( input )
+    return substitute( a:input, '\v^(\s*).*$', '\1', "" )
+endfunc
+
+function! argumentrewrap#ParenthesisLevel( count )
+    return a:count["("] + a:count["["] + a:count["{"]
+endfunc
+
+function! argumentrewrap#TrimArgument( argument )
+    return substitute( a:argument, '^\s*\(.\{-}\)\s*,\{0,1\}\s*$', '\1', '' )
+endfunc
+
+function! argumentrewrap#ExtractByDelimiter( input, start, delimiter )
+    let l:pos = 0
+    for l:pos in range( a:start, strlen( a:input ) )
+        let l:char = strpart( a:input, l:pos, 1 )
+        let l:search = ""
+        for l:search in a:delimiter
+            if l:char == l:search
+                return { "pos": l:pos, "excerpt": strpart( a:input, a:start, l:pos - a:start + 1 ), "delimiter": l:char }
+            endif
+        endfor
+    endfor
+    return ""
+endfunc
+
+function! argumentrewrap#AppendIndentedLine( line )
+    call append( ".", a:line )
+    call cursor( line( "." ) + 1, 0 )
+    normal >>
+endfunc
+
+function! argumentrewrap#RewrapArguments()
+    let l:input = getline( "." )
+    let l:parenthesis = argumentrewrap#IsolateParenthesisToMatch( l:input )
+    if l:parenthesis.open == ""
+        " There is no parenthesis with arguments. Therfore nothing to do.
+        return
+    endif
+    
+    " The indentation level is needed for further handling
+    let l:indentation = argumentrewrap#IsolateIndentation( l:input )
+
+    " Extract startline and set it
+    let l:segment = argumentrewrap#ExtractByDelimiter( l:input, strlen( l:indentation ), [l:parenthesis.open] )
+    call setline( ".", l:indentation . l:segment.excerpt )
+    
+    let l:search = ["(", "[", "{", ",", "}", "]", ")"]
+    let l:count = { "(": 0, "[": 0, "{": 0 }
+    let l:count[l:parenthesis.open] += 1
+    let l:currentArgument = ""
+    while l:count[l:parenthesis.open] > 0
+        let l:segment = argumentrewrap#ExtractByDelimiter( l:input, l:segment.pos + 1, l:search )
+
+        if l:segment.delimiter == "(" || l:segment.delimiter == "[" || l:segment.delimiter == "{"
+            let l:count[l:segment.delimiter] += 1
+            let l:currentArgument = l:currentArgument . l:segment.excerpt
+        elseif l:segment.delimiter == ")" || l:segment.delimiter == "]" || l:segment.delimiter == "}"
+            let l:openingParenthesis = argumentrewrap#MapClosingToOpeningParenthesis( l:segment.delimiter ) 
+            let l:count[l:openingParenthesis] -= 1
+            let l:currentArgument = l:currentArgument . l:segment.excerpt
+        elseif l:segment.delimiter == ","
+            if argumentrewrap#ParenthesisLevel( l:count ) == 1
+                let l:cleaned = argumentrewrap#TrimArgument( l:currentArgument . l:segment.excerpt )
+                let l:currentArgument = ""
+                call argumentrewrap#AppendIndentedLine( l:indentation . l:cleaned . "," )
+            else
+                let l:currentArgument = l:currentArgument . l:segment.excerpt
+            endif
+        endif
+    endwhile
+     
+    call argumentrewrap#AppendIndentedLine( l:indentation . argumentrewrap#TrimArgument( strpart( l:currentArgument, 0, strlen( l:currentArgument ) - 1 ) ) )
+    call append( ".", l:indentation . l:parenthesis.close . strpart( l:input, l:segment.pos + 1 ) )
+    call cursor( line( "." ) + 1, 0 )
+endfunc
