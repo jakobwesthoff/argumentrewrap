@@ -28,7 +28,7 @@ correct indentation::
     );
 
 In a real world scenario you will most likely have to handle more complex
-arguments, which might contain comma seperated lists themselves::
+arguments, which might contain comma separated lists themselves::
 
     foo( [1,2,3], {a:"A", b:"B", c:"C"}, bar( some, other, function ) );
 
@@ -57,14 +57,14 @@ the cursor and rerun the ArgumentWrap function::
         )
     );
 
-The plugin function scans for the first occurance of an opening parenthesis
+The plugin function scans for the first occurrence of an opening parenthesis
 "(", "[" and "{" which is followed by a comma. Therefore it is possible to
-split entries with parenthesis prepending the actual argument list::
+split entries with parenthesis preceding the actual argument list::
 
     foo["bar"] = someFunction( [1,2,3], arg2, arg3, arg4 );
 
 The first brackets used for array access ``["bar"]`` are ignored, as they do
-not contain a comma seperated argument list::
+not contain a comma separated argument list::
 
     foo["bar"] = someFunction(
         [1,2,3],
