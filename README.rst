@@ -87,6 +87,9 @@ __ https://github.com/tpope/vim-pathogen
 Keybinding
 ==========
 
-The split functionality of the ArgumentRewrap is bound to the key combination
-``<leader>s`` by default. To change the bound key combination simple change the
-corresponding line inside the ``plugin/argumentrewrap.vim`` file.
+To simplify usage, you should bind a key to the
+``argumentrewrap#RewrapArguments`` function. As an example::
+
+  nnoremap <silent> <leader>s :call argumentrewrap#RewrapArguments()<CR>
+
+would bind to ``<leader>s``.
