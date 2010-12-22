@@ -1,13 +1,24 @@
 function! argumentrewrap#IsolateParenthesisToMatch( input )
     let l:pos = 0
-    let l:lastParenthesis = ""
+    let l:firstLevelParenthesis = ""
+    let l:count = { "(": 0, "{": 0, "[": 0 }
+    let l:opening = '\((\|\[\|{\)'
+    let l:closing = '\()\|\]\|}\)'
 
+    
     for l:pos in range( 0, strlen( a:input ) )
         let l:char = strpart( a:input, l:pos, 1 )
-        if l:char == "," && l:lastParenthesis != ""
-            return { "open": l:lastParenthesis, "close": argumentrewrap#MapOpeningToClosingParenthesis( l:lastParenthesis ) }
-        elseif l:char =~ '\((\|[\|{\)'
-            let l:lastParenthesis = l:char
+        if l:char =~ l:opening
+            let l:match = matchstr( l:char, l:opening )
+            let l:count[l:match] += 1
+            if argumentrewrap#ParenthesisLevel( l:count ) == 1
+                let l:firstLevelParenthesis = l:match
+            endif
+        elseif l:char =~ l:closing
+            let l:match = matchstr( l:char, l:closing )
+            let l:count[argumentrewrap#MapClosingToOpeningParenthesis( l:match )] -= 1
+        elseif l:char == "," && argumentrewrap#ParenthesisLevel( l:count ) == 1
+            return { "open": l:firstLevelParenthesis, "close": argumentrewrap#MapOpeningToClosingParenthesis( l:firstLevelParenthesis ) }
         endif
     endfor
     
