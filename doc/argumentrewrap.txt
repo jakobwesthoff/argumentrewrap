@@ -3,10 +3,10 @@
                             ArgumentRewrap
 
                                                            *argumentrewrap.vim*
-about                   *argumentrewrap-about*
-examples                *argumentrewrap-examples*
-commands                *argumentrewrap-commands*
-keybinding              *argumentrewrap-keybinding*
+about                   |argumentrewrap-about|
+examples                |argumentrewrap-examples|
+commands                |argumentrewrap-commands|
+keybinding              |argumentrewrap-keybinding|
 
 ==============================================================================
 ABOUT                                                   *argumentrewrap-about*
